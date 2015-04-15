@@ -65,6 +65,7 @@ fun makeMatchList (nil) = raise emptyDecList
 %term EOF
     | LParen
     | RParen
+    | Negate
     | Plus
     | Minus
     | Times
@@ -132,7 +133,7 @@ fun makeMatchList (nil) = raise emptyDecList
 %right SetEqual
 %left Plus Minus Append Equals NotEqual
 %left Times Div Mod Greater Less GreaterEqual LessEqual 
-%right ListCons
+%right ListCons Negate
 %right Exclaim
 
 %%
@@ -140,6 +141,7 @@ fun makeMatchList (nil) = raise emptyDecList
 Prog : Exp EOF                                             (Exp)                  
 
 Exp : Con                                                  (Con)
+    | Negate Exp (negate(Exp))
     | Id                                                   (id(Id))
     | FuncExp Exp                                          (apply(FuncExp,Exp))
     | Exclaim Exp                                          (apply(id("!"),Exp))
