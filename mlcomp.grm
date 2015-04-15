@@ -141,7 +141,7 @@ fun makeMatchList (nil) = raise emptyDecList
 Prog : Exp EOF                                             (Exp)                  
 
 Exp : Con                                                  (Con)
-    | Case Exp of MatchExp                                 (caseof(Exp,MatchExp))
+    (*| Case Exp of MatchExp                                 (caseof(Exp,MatchExp)) *)
     | Negate Exp                                           (negate(Exp))
     | Id                                                   (id(Id))
     | FuncExp Exp                                          (apply(FuncExp,Exp))
