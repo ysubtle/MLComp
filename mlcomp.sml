@@ -329,35 +329,34 @@ open MLAS;
 		   (!theBindings, !freeVars, !cellVars)
 		 end
 
-	 (* How a value is stored or loaded depends on the type of variable it is being
-		stored from or loaded into. A local can be stored or loaded with a store_fast
-		or load_fast respectively. A free variable or a cell varaible is stored or loaded
-		with a store_deref or load_deref. A global is stored or loaded with a store_global
-		or a load_global. These functions are given a name and find that name in one
-		of the lists for locals, cell variable, free variables, or globals and then
-		generate (write) the appropriate store or load instruction. *)
+	(* How a value is stored or loaded depends on the type of variable it is being
+	stored from or loaded into. A local can be stored or loaded with a store_fast
+	or load_fast respectively. A free variable or a cell varaible is stored or loaded
+	with a store_deref or load_deref. A global is stored or loaded with a store_global
+	or a load_global. These functions are given a name and find that name in one
+	of the lists for locals, cell variable, free variables, or globals and then
+	generate (write) the appropriate store or load instruction. *)
 	  
-	 fun store(name,outFile,indent,locals,freeVars,cellVars,globals,bindings) =
-		 let val realName = boundTo(name,bindings)
-		 in
-		   let val index = indexOf(realName, locals)
-		   in
+	fun store(name,outFile,indent,locals,freeVars,cellVars,globals,bindings) = let
+		val realName = boundTo(name,bindings)
+	in
+		let
+			val index = indexOf(realName, locals)
+		in
 			 TextIO.output(outFile,indent^"STORE_FAST "^Int.toString(index)^"\n")
-		   end 
+		end 
 
-		   handle notFound =>
-		   
-		   let val index = indexOf(realName,freeVars) + length(cellVars)
-		   in
-			 TextIO.output(outFile,indent^"STORE_DEREF "^Int.toString(index)^"\n")
-		   end
+		handle notFound => let
+			val index = indexOf(realName,freeVars) + length(cellVars)
+		in
+			TextIO.output(outFile,indent^"STORE_DEREF "^Int.toString(index)^"\n")
+		end
 
-		   handle notFound =>
-
-		   let val index = indexOf(realName,cellVars) 
-		   in
-			 TextIO.output(outFile,indent^"STORE_DEREF "^Int.toString(index)^"\n")
-		   end
+		handle notFound => let
+			val index = indexOf(realName,cellVars) 
+		in
+			TextIO.output(outFile,indent^"STORE_DEREF "^Int.toString(index)^"\n")
+		end
 
 		   handle notFound =>
 
@@ -388,60 +387,59 @@ open MLAS;
 			printBindings(bindings);
 			raise notFound)
 
-	 fun load(name,outFile,indent,locals,freeVars,cellVars,globals,bindings) =
-		 let val realName = boundTo(name,bindings)
-		 in
-		   let val index = indexOf(realName, locals)
-		   in
-			 TextIO.output(outFile,indent^"LOAD_FAST "^Int.toString(index)^"\n")
-		   end 
+	fun load(name,outFile,indent,locals,freeVars,cellVars,globals,bindings) = let
+	 	val realName = boundTo(name,bindings)
+	in 
+		let
+			val index = indexOf(realName, locals)
+		in
+			TextIO.output(outFile,indent^"LOAD_FAST "^Int.toString(index)^"\n")
+		end
 
-		   handle notFound =>
-		   
-		   let val index = indexOf(realName,freeVars) + length(cellVars)
-		   in
-			 TextIO.output(outFile,indent^"LOAD_DEREF "^Int.toString(index)^"\n")
-		   end
+		handle notFound => let
+			val index = indexOf(realName,freeVars) + length(cellVars)
+		in
+			TextIO.output(outFile,indent^"LOAD_DEREF "^Int.toString(index)^"\n")
+		end
 
-		   handle notFound =>
+		handle notFound => let
+			val index = indexOf(realName,cellVars) 
+		in
+			TextIO.output(outFile,indent^"LOAD_DEREF "^Int.toString(index)^"\n")
+		end
 
-		   let val index = indexOf(realName,cellVars) 
-		   in
-			 TextIO.output(outFile,indent^"LOAD_DEREF "^Int.toString(index)^"\n")
-		   end
-
-		   handle notFound =>
-
-		   let val index = indexOf(realName, globals)
-		   in
-			 TextIO.output(outFile,indent^"LOAD_GLOBAL "^Int.toString(index)^"\n")
-		   end
-		
-		   handle notFound => 
-		 
-		   (TextIO.output(TextIO.stdOut,name^" not found in locals, freeVars, cellVars, or globals during load instruction.\n");
+		handle notFound => let
+			val index = indexOf(realName, globals)
+		in
+			TextIO.output(outFile,indent^"LOAD_GLOBAL "^Int.toString(index)^"\n")
+		end
+			
+		handle notFound => (
+			TextIO.output(TextIO.stdOut,name^" not found in locals, freeVars, cellVars, or globals during load instruction.\n");
 			print("The locals are: ["^(commaSepList locals)^"]");
 			print("The freeVars are: ["^(commaSepList freeVars)^"]");
 			print("The cellVars are: ["^(commaSepList cellVars)^"]");
 			print("The globals are: ["^(commaSepList globals)^"]");
 			print("The bindings are: ");
 			printBindings(bindings);
-			raise notFound)
-		 end 
+			raise notFound
+		)
+	end 
 
-		 handle notFound =>
-		   (TextIO.output(TextIO.stdOut,name^" not found in bindings during load instruction.\n");
-			print("The locals are: ["^(commaSepList locals)^"]");
-			print("The freeVars are: ["^(commaSepList freeVars)^"]");
-			print("The cellVars are: ["^(commaSepList cellVars)^"]");
-			print("The globals are: ["^(commaSepList globals)^"]");
-			print("The bindings are: ");
-			printBindings(bindings);
-			raise notFound)
+	handle notFound => (
+		TextIO.output(TextIO.stdOut,name^" not found in bindings during load instruction.\n");
+		print("The locals are: ["^(commaSepList locals)^"]");
+		print("The freeVars are: ["^(commaSepList freeVars)^"]");
+		print("The cellVars are: ["^(commaSepList cellVars)^"]");
+		print("The globals are: ["^(commaSepList globals)^"]");
+		print("The bindings are: ");
+		printBindings(bindings);
+		raise notFound
+	)
 
-	 (* The code generation function found here traverses the abstract syntax tree for a program
-		as a recursive descent of the tree, generating the appropriate instructions as it traverses
-		the tree. *)
+	(* The code generation function found here traverses the abstract syntax tree for a program
+	as a recursive descent of the tree, generating the appropriate instructions as it traverses
+	the tree. *)
 		   
 	fun codegen(int(i),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
 		val index = lookupIndex(i,consts)
@@ -474,14 +472,27 @@ open MLAS;
 		TextIO.output(outFile, indent^"BUILD_FUNLIST 0\n")
 			
 	| codegen(id(name),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		load(name,outFile,indent,locals,freeVars,cellVars,globals,env)                      
+		load(name,outFile,indent,locals,freeVars,cellVars,globals,env)
+
+	| codegen(ifthen(t1,t2,t3),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+   		val elselabel = nextLabel()
+   		val endiflabel = nextLabel()
+	in
+		codegen(t1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
+		TextIO.output(outFile, indent ^ "POP_JUMP_IF_FALSE " ^ elselabel ^ "\n");
+		codegen(t2,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
+		TextIO.output(outFile, indent ^ "JUMP_FORWARD " ^ endiflabel ^ "\n");
+		TextIO.output(outFile, indent ^ elselabel ^ ":\n");
+		codegen(t3,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
+		TextIO.output(outFile, indent ^ endiflabel ^ ":\n")
+	end                        
 
 	| codegen(apply(t1,t2),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
 		val _ = codegen(t1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
 		val _ = codegen(t2,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)              
 	in
 		TextIO.output(outFile,indent^"CALL_FUNCTION 1\n")
-	end  
+	end
 
 	| codegen(listcon(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
 		val size = length(L)
@@ -531,6 +542,14 @@ open MLAS;
 		val _ = codegen(t2,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)              
 	in
 		TextIO.output(outFile,indent^"BINARY_FLOOR_DIVIDE\n")
+	end
+
+	| codegen(infixexp("=",t1,t2),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+		val _ = codegen(t1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
+		val _ = codegen(t2,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)   
+		val index = lookupIndex("=",cmp_op)           
+	in
+		TextIO.output(outFile,indent^"COMPARE_OP "^index^"\n")
 	end
 
 	| codegen(infixexp("<",t1,t2),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let

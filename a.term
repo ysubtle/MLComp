@@ -1,17 +1,10 @@
 letdec(
-   bindval(idpat('x'),apply(id('Int.fromString'),apply(id('input'),str('"Please enter an integer: "')))),
+   bindval(idpat('x'),bool('true')),
    [
     letdec(
-       bindval(idpat('y'),apply(id('Int.fromString'),apply(id('input'),str('"Please enter an integer: "')))),
+       bindval(idpat('y'),bool('false')),
        [
-apply(id('print'),str('"The maximum is "'))        ,apply(id('println'),        ifthen(
-apply(id('>'),tuple([id('x')           ,id('y')]))
-        ,
-id('x')
-        ,
-id('y')
-        )
-)
+apply(id('println'),apply(apply(id('x'),id('orelse')),apply(id('div'),tuple([id('y')        ,int('0')]))))        ,apply(id('println'),apply(apply(id('y'),id('andalso')),apply(id('*'),tuple([id('x')        ,int('5')]))))
        ])
 
    ])
