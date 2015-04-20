@@ -544,139 +544,149 @@ open MLAS;
 
 	| codegen(handlexp(t1,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
 		val L0 = nextLabel()
-			 val L1 = nextLabel()
-			 val L2 = nextLabel()
-			 val excIndex = lookupIndex("Exception",globals)
-			 val excmpIdx = lookupIndex("excmatch",cmp_op)
-		 in
-		   TextIO.output(outFile,indent^"SETUP_EXCEPT "^L0^"\n");
-		   codegen(t1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);         
-		   TextIO.output(outFile,indent^"POP_BLOCK\n");
-		   TextIO.output(outFile,indent^"JUMP_FORWARD "^L2^"\n");
-		   TextIO.output(outFile,L0^":\n");
-		   TextIO.output(outFile,indent^"DUP_TOP\n");
-		   TextIO.output(outFile,indent^"LOAD_GLOBAL "^excIndex^"\n");
-		   TextIO.output(outFile,indent^"COMPARE_OP "^excmpIdx^"\n");
-		   TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^L1^"\n");
-		   (* At this point the stack has Exception, argument to Exception, and traceback on the stack.
-			  We will throw away the argument and the traceback *)
-		   TextIO.output(outFile,indent^"ROT_TWO\n");
-		   TextIO.output(outFile,indent^"POP_TOP\n");
-		   TextIO.output(outFile,indent^"ROT_TWO\n");
-		   TextIO.output(outFile,indent^"POP_TOP\n");
+		val L1 = nextLabel()
+		val L2 = nextLabel()
+		val excIndex = lookupIndex("Exception",globals)
+		val excmpIdx = lookupIndex("excmatch",cmp_op)
+	in
+		TextIO.output(outFile,indent^"SETUP_EXCEPT "^L0^"\n");
+		codegen(t1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);         
+		TextIO.output(outFile,indent^"POP_BLOCK\n");
+		TextIO.output(outFile,indent^"JUMP_FORWARD "^L2^"\n");
+		TextIO.output(outFile,L0^":\n");
+		TextIO.output(outFile,indent^"DUP_TOP\n");
+		TextIO.output(outFile,indent^"LOAD_GLOBAL "^excIndex^"\n");
+		TextIO.output(outFile,indent^"COMPARE_OP "^excmpIdx^"\n");
+		TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^L1^"\n");
+		(* At this point the stack has Exception, argument to Exception, and traceback on the stack.
+		  We will throw away the argument and the traceback *)
+		TextIO.output(outFile,indent^"ROT_TWO\n");
+		TextIO.output(outFile,indent^"POP_TOP\n");
+		TextIO.output(outFile,indent^"ROT_TWO\n");
+		TextIO.output(outFile,indent^"POP_TOP\n");
 
-		   List.map (fn (match(pat,exp)) => 
-					  let val endpatternlab = nextLabel()
-					  in
-						TextIO.output(outFile,indent^"DUP_TOP\n");
-						let val newbindings = patmatch(pat,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope+1,endpatternlab)
-						in
-						  TextIO.output(outFile,indent^"POP_TOP\n");
-						  codegen(exp,outFile,indent,consts,locals,freeVars,cellVars,globals,newbindings@env,globalBindings,scope+1);
-						  TextIO.output(outFile,indent^"JUMP_FORWARD "^L2^"\n");
-						  TextIO.output(outFile,endpatternlab^":\n")
-						end
-					  end) L;
-		   (* Exception pattern was not matched so reraise it *)
-		   TextIO.output(outFile,L1^":\n");
-		   TextIO.output(outFile,indent^"RAISE_VARARGS 1\n");
-		   (* Otherwise, we continue on from here *)
-		   TextIO.output(outFile,L2^":\n")
-		 end
+		List.map (fn (match(pat,exp)) => let
+			val endpatternlab = nextLabel()
+		in
+			TextIO.output(outFile,indent^"DUP_TOP\n");
+			let
+				val newbindings = patmatch(pat,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope+1,endpatternlab)
+			in
+				TextIO.output(outFile,indent^"POP_TOP\n");
+				codegen(exp,outFile,indent,consts,locals,freeVars,cellVars,globals,newbindings@env,globalBindings,scope+1);
+				TextIO.output(outFile,indent^"JUMP_FORWARD "^L2^"\n");
+				TextIO.output(outFile,endpatternlab^":\n")
+			end
+		end) L;
+		(* Exception pattern was not matched so reraise it *)
+		TextIO.output(outFile,L1^":\n");
+		TextIO.output(outFile,indent^"RAISE_VARARGS 1\n");
+		(* Otherwise, we continue on from here *)
+		TextIO.output(outFile,L2^":\n")
+	end
 
-	   | codegen(letdec(d,L2),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		 let val newbindings = decgen(d,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
-		 in
-		   codegenseq(L2,outFile,indent,consts,locals,freeVars,cellVars,globals,newbindings@env,globalBindings,scope+1)
-		 end
+	| codegen(letdec(d,L2),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+		val newbindings = decgen(d,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
+	in
+		codegenseq(L2,outFile,indent,consts,locals,freeVars,cellVars,globals,newbindings@env,globalBindings,scope+1)
+	end
 
-	   | codegen(expsequence(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		   codegenseq(L,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
+	| codegen(expsequence(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
+		codegenseq(L,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
 
-	   | codegen(tuplecon(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		 let val size = List.length(L)
-		 in
-		   codegenlist(L,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
-		   TextIO.output(outFile,indent^"BUILD_TUPLE "^Int.toString(size)^"\n")
-		 end
+	| codegen(tuplecon(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+		val size = List.length(L)
+	in
+		codegenlist(L,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
+		TextIO.output(outFile,indent^"BUILD_TUPLE "^Int.toString(size)^"\n")
+	end
 
 		 (* when a func is encountered, it is for an anonymous function. The function is made here
 			and then called in the corresponding apply that encloses this func *)
-	   | codegen(func(idnum,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		 let val name = "anon@"^(Int.toString(idnum))
-		 in
-		   makeFunction(name,L,outFile,indent,consts,locals,freeVars,cellVars,env,globalBindings,scope)
-		 end
+	| codegen(func(idnum,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+		val name = "anon@"^(Int.toString(idnum))
+	in
+		makeFunction(name,L,outFile,indent,consts,locals,freeVars,cellVars,env,globalBindings,scope)
+	end
 		 
-	   | codegen(other,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) =
-		 (TextIO.output(TextIO.stdOut, "\nAttempt to compile expression not currently supported!\n");
-		  TextIO.output(TextIO.stdOut, "Expression was: " ^ nameOf(other) ^ "\n");
-		  raise Unimplemented) 
+	| codegen(other,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = (
+		TextIO.output(TextIO.stdOut, "\nAttempt to compile expression not currently supported!\n");
+		TextIO.output(TextIO.stdOut, "Expression was: " ^ nameOf(other) ^ "\n");
+		raise Unimplemented
+	) and
 
-	 and codegenlist(nil,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = ()
-	   | codegenlist(h::t,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-			 (codegen(h,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
-			  codegenlist(t,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope))
+	codegenlist(nil,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = ()
+	| codegenlist(h::t,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = (
+		codegen(h,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
+		codegenlist(t,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
+	) and
 
-	 and codegenseq(nil,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = ()
-	   | codegenseq([x],outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-			 codegen(x,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
-	   | codegenseq(h::t,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-			 (codegen(h,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
-			  TextIO.output(outFile,indent^"POP_TOP\n");
-			  codegenseq(t,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope))
+	codegenseq(nil,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = ()
+	| codegenseq([x],outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
+		codegen(x,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
+	| codegenseq(h::t,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = (
+		codegen(h,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
+		TextIO.output(outFile,indent^"POP_TOP\n");
+		codegenseq(t,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope)
+	) and
 
 	 (* The dec gen function is called to generate the code necessary for a declaration of a binding
 		in the code generator *)
 
 		 (* This first decgen is an optimization for patterns like x = val. The idpat(name) pat 
 			will always match so no exception handling or pattern checking is necessary *)
-	 and decgen(bindval(idpat(name),exp),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		 let val variable = name^"@"^Int.toString(scope) 
-		 in
-		   codegen(exp,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
-		   store(name,outFile,indent,locals,freeVars,cellVars,globals,(name,variable)::env);
-		   [(name,variable)]
-		 end
+	decgen(bindval(idpat(name),exp),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+		val variable = name^"@"^Int.toString(scope) 
+	in
+		codegen(exp,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
+		store(name,outFile,indent,locals,freeVars,cellVars,globals,(name,variable)::env);
+		[(name,variable)]
+	end
  
-	   | decgen(bindval(pat,exp),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		 let val exceptionidx = lookupIndex("Exception",globals)
-			 val mismatch = lookupIndex("'Match Not Found'",consts)
-			 val lab = nextLabel()
-			 val next = nextLabel()
-		 in
-		   codegen(exp,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
-		   let val binding = patmatch(pat,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,lab)
-		   in
-			 TextIO.output(outFile,indent^"JUMP_FORWARD "^next^"\n");
-			 TextIO.output(outFile,lab^":\n");       
-			 TextIO.output(outFile,indent^"LOAD_GLOBAL "^exceptionidx^"\n");
-			 TextIO.output(outFile,indent^"LOAD_CONST "^mismatch^"\n");
-			 TextIO.output(outFile,indent^"CALL_FUNCTION 1\n");
-			 TextIO.output(outFile,indent^"RAISE_VARARGS 1\n");
-			 TextIO.output(outFile,next^":\n");
-			 binding
-		   end
-		 end
+	| decgen(bindval(pat,exp),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+		val exceptionidx = lookupIndex("Exception",globals)
+		val mismatch = lookupIndex("'Match Not Found'",consts)
+		val lab = nextLabel()
+		val next = nextLabel()
+	in
+		codegen(exp,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);
+		let
+			val binding = patmatch(pat,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,lab)
+		in
+			TextIO.output(outFile,indent^"JUMP_FORWARD "^next^"\n");
+			TextIO.output(outFile,lab^":\n");       
+			TextIO.output(outFile,indent^"LOAD_GLOBAL "^exceptionidx^"\n");
+			TextIO.output(outFile,indent^"LOAD_CONST "^mismatch^"\n");
+			TextIO.output(outFile,indent^"CALL_FUNCTION 1\n");
+			TextIO.output(outFile,indent^"RAISE_VARARGS 1\n");
+			TextIO.output(outFile,next^":\n");
+			binding
+		end
+	end
 
-	   | decgen(bindvalrec(idpat(name),exp),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		 let val targetName = name
-		 in
-		   [(name,targetName)]
-		 end
+	| decgen(bindvalrec(idpat(name),exp),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+		val targetName = name
+	in
+		[(name,targetName)]
+	end
 
-	   | decgen(bindvalrec(pat,exp),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		 (TextIO.output(TextIO.stdOut,"Use of val rec without an identifier pattern not allowed.\n");
-		  raise Unimplemented)
+	| decgen(bindvalrec(pat,exp),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = (
+		TextIO.output(TextIO.stdOut,"Use of val rec without an identifier pattern not allowed.\n");
+		raise Unimplemented
+	)
 
-	   | decgen(funmatch(name,nil),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = 
-		 (TextIO.output(TextIO.stdOut,"Empty Function Definition??? This shouldn't happen\n");
-		  raise nameMismatch)
+	| decgen(funmatch(name,nil),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = (
+		TextIO.output(TextIO.stdOut,"Empty Function Definition??? This shouldn't happen\n");
+		raise nameMismatch
+	)
 
-	   | decgen(funmatch(name,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = [(name,name)]
+	| decgen(funmatch(name,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) =
+		[(name,name)]
 
-	   | decgen(funmatches(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) =
-		 List.foldr (fn (x,y) => decgen(funmatch(x),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) @ y) [] L
+	| decgen(funmatches(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) =
+		 List.foldr (fn (x,y) =>
+		 	decgen(funmatch(x),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) @ y
+		 ) [] L
 
 		  
 	 (* The patmatch function is given a label to jump to if the pattern does not match. For any 
