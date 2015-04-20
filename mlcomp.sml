@@ -953,6 +953,7 @@ open MLAS;
 			   | functions(id(name)) = ()
 			   | functions(listcon(L)) = (List.map (fn x => (functions x)) L; ())
 			   | functions(tuplecon(L)) = (List.map (fn x => (functions x)) L; ())
+			   | functions(ifthen(exp1,exp2,exp3)) = (functions exp1;functions exp2;functions exp3)
 			   | functions(apply(exp1,exp2)) = (functions exp1;functions exp2)
 			   | functions(infixexp(operator,exp1,exp2)) = (functions exp1;functions exp2)
 			   | functions(handlexp(exp,L)) = (functions exp;List.map (fn (match(pat,exp)) => functions exp) L; ())
