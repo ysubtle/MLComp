@@ -133,15 +133,16 @@ open MLAS;
 	| patConsts(listpat(L)) =  List.foldr (fn (x,y) => (patConsts x) @ y) [] L
 	| patConsts(aspat(n,pat)) = patConsts(pat)
 
-	 fun constants(ast) = 
-		 let fun decconsts(bindval(_,exp)) = con exp
-			   | decconsts(bindvalrec(idpat(name),func(idnum,L))) = ["code("^name^")"]
-			   | decconsts(bindvalrec(_,_)) = 
-				 (TextIO.output(TextIO.stdOut,"val rec construct must be val rec id = (fn <x> => ...)\n");
-				  raise Unimplemented)
-			   | decconsts(funmatch(name,nil)) = []
-			   | decconsts(funmatch(name,L)) = ["code("^name^")"]
-			   | decconsts(funmatches(L)) = List.foldr (fn (x,y) => (decconsts (funmatch(x))) @ y) [] L
+	fun constants(ast) = let
+		fun decconsts(bindval(_,exp)) = con exp
+		| decconsts(bindvalrec(idpat(name),func(idnum,L))) = ["code("^name^")"]
+		| decconsts(bindvalrec(_,_)) = (
+			TextIO.output(TextIO.stdOut,"val rec construct must be val rec id = (fn <x> => ...)\n");
+			raise Unimplemented
+		)
+		| decconsts(funmatch(name,nil)) = []
+		| decconsts(funmatch(name,L)) = ["code("^name^")"]
+		| decconsts(funmatches(L)) = List.foldr (fn (x,y) => (decconsts (funmatch(x))) @ y) [] L
 
 			 and con(int(i)) = [i]
 			   | con(boolval(b)) = [if b = "true" then "True" else "False"]
@@ -149,7 +150,8 @@ open MLAS;
 			   | con(negate(t)) = (con t)
 			   | con(infixexp(operator,t1,t2)) = (con t1) @ (con t2)
 			   | con(expsequence(L)) = (List.foldr (fn (x,y) => (con x) @ y) [] L)
-			   | con(letdec(d,L2)) = (decconsts d) @ (List.foldr (fn (x,y) => (con x) @ y) [] L2)   
+			   | con(letdec(d,L2)) = (decconsts d) @ (List.foldr (fn (x,y) => (con x) @ y) [] L2)
+			   | con(ifthen(t1,t2,t3)) = (con t1) @ (con t2) @ (con t3)
 			   | con(apply(t1,t2)) = (con t1) @ (con t2)
 			   | con(raisexp(t)) = (con t)
 			   | con(listcon(L)) = (List.foldr (fn (x,y) => (con x)@y) [] L)
@@ -206,26 +208,37 @@ open MLAS;
 
 			 fun addIt(value,var) = (var := (value::(!var)); value)
 
-			 fun bindingsOf(int(n),bindings,scope) = ()
-			   | bindingsOf(boolval(n),bindings,scope) = ()
-			   | bindingsOf(ch(c),bindings,scope) = ()
-			   | bindingsOf(str(s),bindings,scope) = ()
-			   | bindingsOf(id("nil"),bindings,scope) = ()
-			   | bindingsOf(id(name),bindings,scope) = check(name,bindings)
-			   | bindingsOf(listcon(L),bindings,scope) = (List.map (fn x => (bindingsOf(x,bindings,scope))) L; ())
-			   | bindingsOf(tuplecon(L),bindings,scope) = (List.map (fn x => (bindingsOf(x,bindings,scope))) L; ())
-			   | bindingsOf(apply(exp1,exp2),bindings,scope) = (bindingsOf(exp1,bindings,scope); bindingsOf(exp2,bindings,scope))
-			   | bindingsOf(infixexp(operator,exp1,exp2),bindings,scope) = (bindingsOf(exp1,bindings,scope); bindingsOf(exp2,bindings,scope))
-			   | bindingsOf(negate(exp1), bindings, scope) = bindingsOf(exp1, bindings, scope)
-			   | bindingsOf(handlexp(exp,L),bindings,scope) =  
-				 (bindingsOf(exp,bindings,scope); 
-				  List.map (fn match(pat,exp) => 
-					 let val patBs = patBindings(pat,scope+1)
-					 in
-					   bindingsOf(exp,patBs@bindings,scope+1);
-					   List.map (fn b => addIt(b,theBindings)) patBs
-					 end) L;
-				  ())
+			fun bindingsOf(int(n),bindings,scope) = ()
+			| bindingsOf(boolval(n),bindings,scope) = ()
+			| bindingsOf(ch(c),bindings,scope) = ()
+			| bindingsOf(str(s),bindings,scope) = ()
+			| bindingsOf(id("nil"),bindings,scope) = ()
+			| bindingsOf(id(name),bindings,scope) = check(name,bindings)
+			| bindingsOf(listcon(L),bindings,scope) = (List.map (fn x => (bindingsOf(x,bindings,scope))) L; ())
+			| bindingsOf(tuplecon(L),bindings,scope) = (List.map (fn x => (bindingsOf(x,bindings,scope))) L; ())
+			| bindingsOf(ifthen(exp1,exp2,exp3),bindings,scope) = (
+				bindingsOf(exp1,bindings,scope);
+				bindingsOf(exp2,bindings,scope);
+				bindingsOf(exp3,bindings,scope)
+			)
+			| bindingsOf(apply(exp1,exp2),bindings,scope) = (
+				bindingsOf(exp1,bindings,scope);
+				bindingsOf(exp2,bindings,scope)
+			)
+			| bindingsOf(infixexp(operator,exp1,exp2),bindings,scope) = (
+				bindingsOf(exp1,bindings,scope);
+				bindingsOf(exp2,bindings,scope)
+			)
+			| bindingsOf(negate(exp1), bindings, scope) = bindingsOf(exp1, bindings, scope)
+			| bindingsOf(handlexp(exp,L),bindings,scope) =  (
+				bindingsOf(exp,bindings,scope); 
+				List.map (fn match(pat,exp) => let
+					val patBs = patBindings(pat,scope+1)
+				in
+					bindingsOf(exp,patBs@bindings,scope+1);
+					List.map (fn b => addIt(b,theBindings)) patBs
+				end) L; ()
+			)
 			  
 			   | bindingsOf(raisexp(exp),bindings,scope) = bindingsOf(exp,bindings,scope)
 			   | bindingsOf(expsequence(L),bindings,scope) = (List.map (fn x => (bindingsOf(x,bindings,scope))) L; ())
@@ -841,6 +854,7 @@ open MLAS;
 			   | functions(id(name)) = ()
 			   | functions(listcon(L)) = (List.map (fn x => (functions x)) L; ())
 			   | functions(tuplecon(L)) = (List.map (fn x => (functions x)) L; ())
+			   | functions(ifthen(exp1,exp2,exp3)) = (functions exp1;functions exp2;functions exp3)
 			   | functions(apply(exp1,exp2)) = (functions exp1;functions exp2)
 			   | functions(infixexp(operator,exp1,exp2)) = (functions exp1;functions exp2)
 			   | functions(handlexp(exp,L)) = (functions exp; List.map (fn (match(pat,exp)) => functions exp) L; ())
