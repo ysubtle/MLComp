@@ -945,25 +945,32 @@ open MLAS;
 			 end
 		end
 
-	 and makeFunctions(ast,outFile,indent,consts,locals,freeVars,cellVars,env,globalBindings,scope) =
-		 let fun functions(int(n)) = ()
-			   | functions(boolval(n)) = ()
-			   | functions(ch(c)) = ()
-			   | functions(str(s)) = ()
-			   | functions(id(name)) = ()
-			   | functions(listcon(L)) = (List.map (fn x => (functions x)) L; ())
-			   | functions(tuplecon(L)) = (List.map (fn x => (functions x)) L; ())
-			   | functions(ifthen(exp1,exp2,exp3)) = (functions exp1;functions exp2;functions exp3)
-			   | functions(apply(exp1,exp2)) = (functions exp1;functions exp2)
-			   | functions(infixexp(operator,exp1,exp2)) = (functions exp1;functions exp2)
-			   | functions(handlexp(exp,L)) = (functions exp;List.map (fn (match(pat,exp)) => functions exp) L; ())
-			   | functions(raisexp(e)) = (functions e)
-			   | functions(negate(e)) = (functions e)
-
-
-			   | functions(expsequence(L)) = (List.map (fn x => (functions x)) L; ())
-
-			   | functions(letdec(d,L)) = 
+	 and makeFunctions(ast,outFile,indent,consts,locals,freeVars,cellVars,env,globalBindings,scope) = let
+	 	fun functions(int(n)) = ()
+		| functions(boolval(n)) = ()
+		| functions(ch(c)) = ()
+		| functions(str(s)) = ()
+		| functions(id(name)) = ()
+		| functions(listcon(L)) = (List.map (fn x => (functions x)) L; ())
+		| functions(tuplecon(L)) = (List.map (fn x => (functions x)) L; ())
+		| functions(ifthen(exp1,exp2,exp3)) = (
+			functions exp1;
+			functions exp2;
+			functions exp3
+		)
+		| functions(apply(exp1,exp2)) = (
+			functions exp1;
+			functions exp2
+		)
+		| functions(infixexp(operator,exp1,exp2)) = (
+			functions exp1;
+			functions exp2
+		)
+		| functions(handlexp(exp,L)) = (functions exp;List.map (fn (match(pat,exp)) => functions exp) L; ())
+		| functions(raisexp(e)) = (functions e)
+		| functions(negate(e)) = (functions e)
+		| functions(expsequence(L)) = (List.map (fn x => (functions x)) L; ())
+		| functions(letdec(d,L)) = 
 				 let val lbindings = localBindings(letdec(d,[]),env,globalBindings,scope)
 					 val newbindings = #1lbindings
 					 val newfreevars = removeDups (freeVars @ #2lbindings)
