@@ -190,11 +190,15 @@ open MLAS;
 	| patBindings(boolpat(v),scope) = []
 	| patBindings(strpat(v),scope) = []
 	| patBindings(idpat(name),scope) = [(name,name^"@"^Int.toString(scope))]
-	| patBindings(infixpat("::",pat1,pat2),scope) = (patBindings(pat1,scope)) @ (patBindings(pat2,scope))
+	| patBindings(infixpat("::",pat1,pat2),scope) = (
+		patBindings(pat1,scope)) @ (patBindings(pat2,scope)
+	)
 	| patBindings(tuplepat(L),scope) = List.foldr (fn (x,y) => patBindings(x,scope)@y) [] L
-	| patBindings(_,scope) = 
-	 (TextIO.output(TextIO.stdOut, "\nAttempt to gather locals for unsupported pattern!\n");
-	  raise Unimplemented) 
+	| patBindings(aspat(name,pat), scope) = [(name,name^"@"^Int.toString(scope))] @ (patBindings(pat, scope))
+	| patBindings(_,scope) = (
+		TextIO.output(TextIO.stdOut, "\nAttempt to gather locals for unsupported pattern!\n");
+	  	raise Unimplemented
+	) 
 
 	and localBindings(ast,pats,globalBindings,scope) = 
 		 let val freeVars = ref []
@@ -761,42 +765,55 @@ open MLAS;
 		   []
 		 end
 		   
-	   | patmatch(strpat(v), outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = 
-		 let val strIndex = lookupIndex(v,consts)
-			 val equalIndex = lookupIndex("=",cmp_op)
-		 in
-		   TextIO.output(outFile,indent^"LOAD_CONST "^strIndex^"\n");
-		   TextIO.output(outFile,indent^"COMPARE_OP "^equalIndex^"\n");
-		   TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^label^"\n");
-		   []
-		 end
-				  
-	   | patmatch(idpat(name),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = 
-		 let val variable = name^"@"^Int.toString(scope) 
-		 in
-		   store(name,outFile,indent,locals,freeVars,cellVars,globals,(name,variable)::env);
-		   [(name,variable)]
-		 end
+	| patmatch(strpat(v), outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = let
+		val strIndex = lookupIndex(v,consts)
+		val equalIndex = lookupIndex("=",cmp_op)
+	in
+		TextIO.output(outFile,indent^"LOAD_CONST "^strIndex^"\n");
+		TextIO.output(outFile,indent^"COMPARE_OP "^equalIndex^"\n");
+		TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^label^"\n");
+		[]
+	end
 
-	   | patmatch(infixpat("::",pat1,pat2),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) =
-		 let val zeroIndex = lookupIndex("0",consts)
-			 val lenIndex = lookupIndex("len",globals)
-			 val gtIndex = lookupIndex(">",cmp_op)
-		 in
-		   TextIO.output(outFile,indent^"DUP_TOP\n");
-		   TextIO.output(outFile,indent^"LOAD_GLOBAL "^lenIndex^"\n");
-		   TextIO.output(outFile,indent^"ROT_TWO\n");
-		   TextIO.output(outFile,indent^"CALL_FUNCTION 1\n");
-		   TextIO.output(outFile,indent^"LOAD_CONST "^zeroIndex^"\n");
-		   TextIO.output(outFile,indent^"COMPARE_OP "^gtIndex^"\n");
-		   TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE " ^ label ^ "\n");
-		   TextIO.output(outFile,indent^"SELECT_FUNLIST\n");
-		   let val head = patmatch(pat1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label)
-			   val tail = patmatch(pat2,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label)
-		   in
-			 head @ tail
-		   end
-		 end
+	| patmatch(aspat(name, pat),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = let
+		val variable = name^"@"^Int.toString(scope) 
+	in
+		TextIO.output(outFile,indent^"DUP_TOP\n");
+		store(name,outFile,indent,locals,freeVars,cellVars,globals,(name,variable)::env);
+		let
+			val newbindings = patmatch(pat,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label)
+		in
+			[(name,variable)] @ newbindings
+		end
+	end
+				  
+	| patmatch(idpat(name),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = let
+		val variable = name^"@"^Int.toString(scope) 
+	in
+		store(name,outFile,indent,locals,freeVars,cellVars,globals,(name,variable)::env);
+		[(name,variable)]
+	end
+
+	| patmatch(infixpat("::",pat1,pat2),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = let
+		val zeroIndex = lookupIndex("0",consts)
+		val lenIndex = lookupIndex("len",globals)
+		val gtIndex = lookupIndex(">",cmp_op)
+	in
+		TextIO.output(outFile,indent^"DUP_TOP\n");
+		TextIO.output(outFile,indent^"LOAD_GLOBAL "^lenIndex^"\n");
+		TextIO.output(outFile,indent^"ROT_TWO\n");
+		TextIO.output(outFile,indent^"CALL_FUNCTION 1\n");
+		TextIO.output(outFile,indent^"LOAD_CONST "^zeroIndex^"\n");
+		TextIO.output(outFile,indent^"COMPARE_OP "^gtIndex^"\n");
+		TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE " ^ label ^ "\n");
+		TextIO.output(outFile,indent^"SELECT_FUNLIST\n");
+		let
+			val head = patmatch(pat1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label)
+			val tail = patmatch(pat2,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label)
+		in
+			head @ tail
+		end
+	end
 
 	   | patmatch(tuplepat(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) =
 		 (TextIO.output(outFile,indent^"SELECT_TUPLE "^Int.toString(length(L))^"\n");
