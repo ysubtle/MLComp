@@ -730,40 +730,42 @@ open MLAS;
 		match the pattern. If it does, the variables for the pattern bindings are initialized with the 
 		appropriate values for the pattern. *)
   
-	 and patmatch(idpat("nil"),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) =
-		 let val lenIndex = lookupIndex("len",globals)
-			 val equalIndex = lookupIndex("=",cmp_op)
-			 val zeroIndex = lookupIndex("0",consts)
-		 in
-		   TextIO.output(outFile,indent^"LOAD_GLOBAL "^lenIndex^"\n");
-		   TextIO.output(outFile,indent^"ROT_TWO\n");
-		   TextIO.output(outFile,indent^"CALL_FUNCTION 1\n");
-		   TextIO.output(outFile,indent^"LOAD_CONST "^zeroIndex^"\n");
-		   TextIO.output(outFile,indent^"COMPARE_OP "^equalIndex^"\n");
-		   TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^label^"\n");
-		   []
-		 end
+	and
 
-	   | patmatch(intpat(v), outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = 
-		 let val numIndex = lookupIndex(v,consts)
-			 val equalIndex = lookupIndex("=",cmp_op)
-		 in
-		   TextIO.output(outFile,indent^"LOAD_CONST "^numIndex^"\n");
-		   TextIO.output(outFile,indent^"COMPARE_OP "^equalIndex^"\n");
-		   TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^label^"\n");
-		   []
-		 end
+	patmatch(idpat("nil"),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = let
+	 	val lenIndex = lookupIndex("len",globals)
+		val equalIndex = lookupIndex("=",cmp_op)
+		val zeroIndex = lookupIndex("0",consts)
+	in
+		TextIO.output(outFile,indent^"LOAD_GLOBAL "^lenIndex^"\n");
+		TextIO.output(outFile,indent^"ROT_TWO\n");
+		TextIO.output(outFile,indent^"CALL_FUNCTION 1\n");
+		TextIO.output(outFile,indent^"LOAD_CONST "^zeroIndex^"\n");
+		TextIO.output(outFile,indent^"COMPARE_OP "^equalIndex^"\n");
+		TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^label^"\n");
+		[]
+	end
+
+	| patmatch(intpat(v), outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = let
+		val numIndex = lookupIndex(v,consts)
+		val equalIndex = lookupIndex("=",cmp_op)
+	in
+		TextIO.output(outFile,indent^"LOAD_CONST "^numIndex^"\n");
+		TextIO.output(outFile,indent^"COMPARE_OP "^equalIndex^"\n");
+		TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^label^"\n");
+		[]
+	end
 		   
-	   | patmatch(boolpat(v), outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = 
-		 let val value = if v = "true" then "True" else "False"
-			 val boolIndex = lookupIndex(value,consts)
-			 val equalIndex = lookupIndex("=",cmp_op)
-		 in
-		   TextIO.output(outFile,indent^"LOAD_CONST "^boolIndex^"\n");
-		   TextIO.output(outFile,indent^"COMPARE_OP "^equalIndex^"\n");
-		   TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^label^"\n");
-		   []
-		 end
+	| patmatch(boolpat(v), outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = let
+		val value = if v = "true" then "True" else "False"
+		val boolIndex = lookupIndex(value,consts)
+		val equalIndex = lookupIndex("=",cmp_op)
+	in
+		TextIO.output(outFile,indent^"LOAD_CONST "^boolIndex^"\n");
+		TextIO.output(outFile,indent^"COMPARE_OP "^equalIndex^"\n");
+		TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^label^"\n");
+		[]
+	end
 		   
 	| patmatch(strpat(v), outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = let
 		val strIndex = lookupIndex(v,consts)
@@ -815,13 +817,15 @@ open MLAS;
 		end
 	end
 
-	   | patmatch(tuplepat(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) =
-		 (TextIO.output(outFile,indent^"SELECT_TUPLE "^Int.toString(length(L))^"\n");
-		  List.foldl (fn (x,y) => patmatch(x,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) @ y) [] L)
+	| patmatch(tuplepat(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = (
+		TextIO.output(outFile,indent^"SELECT_TUPLE "^Int.toString(length(L))^"\n");
+		 List.foldl (fn (x,y) => patmatch(x,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) @ y) [] L
+	)
 
-	   | patmatch(_,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) =
-		 (TextIO.output(TextIO.stdOut, "\nAttempt to compile unsupported pattern match!\n");
-		  raise Unimplemented)   
+	| patmatch(_,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = (
+		TextIO.output(TextIO.stdOut, "\nAttempt to compile unsupported pattern match!\n");
+		raise Unimplemented
+	)   
 
 	 (* The nestedfuns function is necessary because the CoCo assembly language insists that nested functions (whether anonymous
 		or named) be defined before the body of the code that uses them. This code traverses the abstract syntax tree of an
@@ -829,60 +833,63 @@ open MLAS;
 		generate its code. This function is called right after the first line (the line containing the FUNCTION keyword) is 
 		written for the enclosing function's definition. *)
 
-	 and nestedfun(name,expList,outFile,indent,globals,env,globalBindings,scope) = 
-		 let val consts = (removeDups ("None"::"'Match Not Found'"::"0"::(List.foldr (fn (match(pat,exp),y) => (patConsts pat)@(constants exp)@y) [] expList)))
-			 val patBs = concat (List.map (fn (match(pat,exp)) => patBindings(pat,scope+1)) expList)
-			 val bindingsandvars = List.map (fn (match(pat,exp)) =>
-										let val patB = patBindings(pat,scope+1)
-										in
-										  localBindings(exp,patB,globalBindings,scope+1)
-										end) expList   
-			 val newbindings = (concat (List.map (fn x => (#1(x))) bindingsandvars)) @ patBs 
-			 val bindingVars = name^"@Param"::(removeDups (List.map (fn x => #2(x)) newbindings))
-			 val freeVars = List.map (fn x => boundTo(x,(name,name)::(newbindings@env@globalBindings))) (removeDups (concat (List.map (fn x => (#2(x))) bindingsandvars)))
-			 val cellVars = List.map (fn x => boundTo(x,(name,name)::(newbindings@env@globalBindings))) (removeDups (concat (List.map (fn x => (#3(x))) bindingsandvars)))
-			 val locals = listdiff (listdiff bindingVars freeVars) cellVars
-			 val exceptionidx = lookupIndex("Exception",globals)
-			 val mismatch = lookupIndex("'Match Not Found'",consts)   
+	and
 
-	  
-		 in
-			TextIO.output(outFile,indent^"Function: "^name^"/1\n");
-			List.map (fn (match(pat,ast)) => nestedfuns(ast,outFile,indent^"    ",globals,patBindings(pat,scope+1)@[(name,name)]@env,globalBindings,scope+1)) expList;
-			TextIO.output(outFile,indent^"Constants: "^(commaSepList consts) ^ "\n");
-			if not (List.null(locals)) then
-			  TextIO.output(outFile,indent^"Locals: "^(commaSepList locals) ^ "\n")
-			else ();
-			if not (List.null(freeVars)) then
-			  TextIO.output(outFile,indent^"FreeVars: "^(commaSepList freeVars) ^ "\n")
-			else ();
-			if not (List.null(cellVars)) then
-			  TextIO.output(outFile,indent^"CellVars: "^(commaSepList cellVars) ^ "\n")
-			else ();
-			TextIO.output(outFile,indent^"Globals: "^(commaSepList globals) ^ "\n");
-			TextIO.output(outFile,indent^"BEGIN\n");
-			List.map (fn (match(pat,exp)) => 
-				  makeFunctions(exp,outFile,indent^"    ",consts,locals,freeVars,cellVars,patBindings(pat,scope+1)@[(name,name)]@env,globalBindings,scope+1)) expList;
+	nestedfun(name,expList,outFile,indent,globals,env,globalBindings,scope) = let
+		val consts = (removeDups ("None"::"'Match Not Found'"::"0"::(List.foldr (fn (match(pat,exp),y) => (patConsts pat)@(constants exp)@y) [] expList)))
+		val patBs = concat (List.map (fn (match(pat,exp)) => patBindings(pat,scope+1)) expList)
+		val bindingsandvars =
+			List.map (fn (match(pat,exp)) => let
+					val patB = patBindings(pat,scope+1)
+				in
+					localBindings(exp,patB,globalBindings,scope+1)
+				end) expList   
+		val newbindings = (concat (List.map (fn x => (#1(x))) bindingsandvars)) @ patBs 
+		val bindingVars = name^"@Param"::(removeDups (List.map (fn x => #2(x)) newbindings))
+		val freeVars = List.map (fn x => boundTo(x,(name,name)::(newbindings@env@globalBindings))) (removeDups (concat (List.map (fn x => (#2(x))) bindingsandvars)))
+		val cellVars = List.map (fn x => boundTo(x,(name,name)::(newbindings@env@globalBindings))) (removeDups (concat (List.map (fn x => (#3(x))) bindingsandvars)))
+		val locals = listdiff (listdiff bindingVars freeVars) cellVars
+		val exceptionidx = lookupIndex("Exception",globals)
+		val mismatch = lookupIndex("'Match Not Found'",consts)   
+	in
+		TextIO.output(outFile,indent^"Function: "^name^"/1\n");
+		List.map (fn (match(pat,ast)) => nestedfuns(ast,outFile,indent^"    ",globals,patBindings(pat,scope+1)@[(name,name)]@env,globalBindings,scope+1)) expList;
+		TextIO.output(outFile,indent^"Constants: "^(commaSepList consts) ^ "\n");
+		if not (List.null(locals)) then
+			TextIO.output(outFile,indent^"Locals: "^(commaSepList locals) ^ "\n")
+		else ();
+		if not (List.null(freeVars)) then
+			TextIO.output(outFile,indent^"FreeVars: "^(commaSepList freeVars) ^ "\n")
+		else ();
+		if not (List.null(cellVars)) then
+			TextIO.output(outFile,indent^"CellVars: "^(commaSepList cellVars) ^ "\n")
+		else ();
+		TextIO.output(outFile,indent^"Globals: "^(commaSepList globals) ^ "\n");
+		TextIO.output(outFile,indent^"BEGIN\n");
+		List.map (fn (match(pat,exp)) => 
+			makeFunctions(exp,outFile,indent^"    ",consts,locals,freeVars,cellVars,patBindings(pat,scope+1)@[(name,name)]@env,globalBindings,scope+1)) expList;
 
-			List.map (fn (match(pat,exp)) => 
-					  let val endpatternlabel = nextLabel()
-						  val patB = patBindings(pat,scope+1)
-					  in
-						TextIO.output(outFile,indent^"    LOAD_FAST 0\n");(*hard-coded to 0 because parameter is always at 0*)
-						patmatch(pat,outFile,indent^"    ",consts,locals,freeVars,cellVars,globals,patB@[(name,name)]@env@globalBindings,scope+1,endpatternlabel);
-						codegen(exp,outFile,indent^"    ",consts,locals,freeVars,cellVars,globals,patB@[(name,name)]@env@globalBindings,globalBindings,scope+1);
-						TextIO.output(outFile,indent^"    RETURN_VALUE\n");
-						TextIO.output(outFile,endpatternlabel^":\n")
-					  end) expList;
+		List.map (fn (match(pat,exp)) => 
+				  let val endpatternlabel = nextLabel()
+					  val patB = patBindings(pat,scope+1)
+				  in
+					TextIO.output(outFile,indent^"    LOAD_FAST 0\n");(*hard-coded to 0 because parameter is always at 0*)
+					patmatch(pat,outFile,indent^"    ",consts,locals,freeVars,cellVars,globals,patB@[(name,name)]@env@globalBindings,scope+1,endpatternlabel);
+					codegen(exp,outFile,indent^"    ",consts,locals,freeVars,cellVars,globals,patB@[(name,name)]@env@globalBindings,globalBindings,scope+1);
+					TextIO.output(outFile,indent^"    RETURN_VALUE\n");
+					TextIO.output(outFile,endpatternlabel^":\n")
+				  end) expList;
 
-			TextIO.output(outFile,indent^"    LOAD_GLOBAL "^exceptionidx^"\n");
-			TextIO.output(outFile,indent^"    LOAD_CONST "^mismatch^"\n");
-			TextIO.output(outFile,indent^"    CALL_FUNCTION 1\n");
-			TextIO.output(outFile,indent^"    RAISE_VARARGS 1\n");
-			TextIO.output(outFile,indent^"END\n")
-		 end
+		TextIO.output(outFile,indent^"    LOAD_GLOBAL "^exceptionidx^"\n");
+		TextIO.output(outFile,indent^"    LOAD_CONST "^mismatch^"\n");
+		TextIO.output(outFile,indent^"    CALL_FUNCTION 1\n");
+		TextIO.output(outFile,indent^"    RAISE_VARARGS 1\n");
+		TextIO.output(outFile,indent^"END\n")
+	end
 
-	 and nestedfuns(ast,outFile,indent,globals,env,globalBindings,scope) =
+	and
+
+	nestedfuns(ast,outFile,indent,globals,env,globalBindings,scope) =
 		   let fun functions(int(n)) = ()
 			   | functions(boolval(n)) = ()
 			   | functions(ch(c)) = ()
