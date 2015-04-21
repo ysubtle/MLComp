@@ -112,6 +112,7 @@ open MLAS;
 	| nameOf(tuplecon(L)) = "tuplecon"
 	| nameOf(expsequence(L)) = "expsequence"
 	| nameOf(letdec(L1,L2)) = "letdec"
+	| nameOf(caseof(e,L)) = "handlexp"
 	| nameOf(handlexp(e,L)) = "handlexp"
 	| nameOf(ifthen(e1,e2,e3)) = "ifthen"
 	| nameOf(whiledo(e1,e2)) = "whiledo"
@@ -234,6 +235,15 @@ open MLAS;
 				bindingsOf(exp2,bindings,scope)
 			)
 			| bindingsOf(negate(exp1), bindings, scope) = bindingsOf(exp1, bindings, scope)
+			| bindingsOf(caseof(exp,L),bindings,scope) =  (
+				bindingsOf(exp,bindings,scope); 
+				List.map (fn match(pat,exp) => let
+					val patBs = patBindings(pat,scope+1)
+				in
+					bindingsOf(exp,patBs@bindings,scope+1);
+					List.map (fn b => addIt(b,theBindings)) patBs
+				end) L; ()
+			)
 			| bindingsOf(handlexp(exp,L),bindings,scope) =  (
 				bindingsOf(exp,bindings,scope); 
 				List.map (fn match(pat,exp) => let

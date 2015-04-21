@@ -110,6 +110,8 @@ fun makeMatchList (nil) = raise emptyDecList
     | Id of string
     | SetEqual
     | Exclaim
+    | Case
+    | Of
 
 
 
@@ -141,7 +143,7 @@ fun makeMatchList (nil) = raise emptyDecList
 Prog : Exp EOF                                             (Exp)                  
 
 Exp : Con                                                  (Con)
-    (*| Case Exp of MatchExp                                 (caseof(Exp,MatchExp)) *)
+    | Case Exp Of MatchExp                                 (caseof(Exp,MatchExp))
     | Negate Exp                                           (negate(Exp))
     | Id                                                   (id(Id))
     | FuncExp Exp                                          (apply(FuncExp,Exp))
