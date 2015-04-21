@@ -37,7 +37,7 @@ open MLAS;
 
 	 (* These are the operators in the order the CoCo virtual machine has them for index values *)
 
-	 val cmp_op = ["<","<=","=","<>",">",">=","in","notin","is","isnot","excmatch","BAD"];
+	 val cmp_op = ["<","<=","=","<>",">",">=","in","notin","is","isnot","excmatch","BAD", "=>"];
 
 	 (* Labels are needed in the code generation when a jump is required. The nextLabel
 		function returns a unique string that can be used as a label. *)
@@ -112,7 +112,7 @@ open MLAS;
 	| nameOf(tuplecon(L)) = "tuplecon"
 	| nameOf(expsequence(L)) = "expsequence"
 	| nameOf(letdec(L1,L2)) = "letdec"
-	| nameOf(caseof(e,L)) = "handlexp"
+	| nameOf(caseof(e,L)) = "caseof"
 	| nameOf(handlexp(e,L)) = "handlexp"
 	| nameOf(ifthen(e1,e2,e3)) = "ifthen"
 	| nameOf(whiledo(e1,e2)) = "whiledo"
@@ -156,7 +156,8 @@ open MLAS;
 			   | con(apply(t1,t2)) = (con t1) @ (con t2)
 			   | con(raisexp(t)) = (con t)
 			   | con(listcon(L)) = (List.foldr (fn (x,y) => (con x)@y) [] L)
-			   | con(func(idnum,matchlist)) = ["code(anon@"^Int.toString(idnum)^")"]  
+			   | con(func(idnum,matchlist)) = ["code(anon@"^Int.toString(idnum)^")"]
+			   | con(caseof(t1,L)) = (con t1) @ ((List.foldr (fn (match(pat,exp),y) => (patConsts pat) @ (con exp) @ y) []) L)      
 			   | con(handlexp(t1,L)) = (con t1) @ ((List.foldr (fn (match(pat,exp),y) => (patConsts pat) @ (con exp) @ y) []) L)                   
 			   | con(tuplecon(L)) = List.foldr (fn (x,y) => (con x) @ y) [] L
 
@@ -588,6 +589,49 @@ open MLAS;
 		TextIO.output(outFile,indent^"RAISE_VARARGS 1\n")
 	end
 
+	| codegen(caseof(t1,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
+		val L0 = nextLabel()
+		val L1 = nextLabel()
+		val L2 = nextLabel()
+		val excIndex = lookupIndex("Exception",globals)
+		val excmpIdx = lookupIndex("excmatch",cmp_op)
+	in
+		TextIO.output(outFile,indent^"SETUP_EXCEPT "^L0^"\n");
+		codegen(t1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);         
+		TextIO.output(outFile,indent^"POP_BLOCK\n");
+		TextIO.output(outFile,indent^"JUMP_FORWARD "^L2^"\n");
+		TextIO.output(outFile,L0^":\n");
+		TextIO.output(outFile,indent^"DUP_TOP\n");
+		TextIO.output(outFile,indent^"LOAD_GLOBAL "^excIndex^"\n");
+		TextIO.output(outFile,indent^"COMPARE_OP "^excmpIdx^"\n");
+		TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^L1^"\n");
+		(* At this point the stack has Exception, argument to Exception, and traceback on the stack.
+		  We will throw away the argument and the traceback *)
+		TextIO.output(outFile,indent^"ROT_TWO\n");
+		TextIO.output(outFile,indent^"POP_TOP\n");
+		TextIO.output(outFile,indent^"ROT_TWO\n");
+		TextIO.output(outFile,indent^"POP_TOP\n");
+
+		List.map (fn (match(pat,exp)) => let
+			val endpatternlab = nextLabel()
+		in
+			TextIO.output(outFile,indent^"DUP_TOP\n");
+			let
+				val newbindings = patmatch(pat,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope+1,endpatternlab)
+			in
+				TextIO.output(outFile,indent^"POP_TOP\n");
+				codegen(exp,outFile,indent,consts,locals,freeVars,cellVars,globals,newbindings@env,globalBindings,scope+1);
+				TextIO.output(outFile,indent^"JUMP_FORWARD "^L2^"\n");
+				TextIO.output(outFile,endpatternlab^":\n")
+			end
+		end) L;
+		(* Exception pattern was not matched so reraise it *)
+		TextIO.output(outFile,L1^":\n");
+		TextIO.output(outFile,indent^"RAISE_VARARGS 1\n");
+		(* Otherwise, we continue on from here *)
+		TextIO.output(outFile,L2^":\n")
+	end
+
 	| codegen(handlexp(t1,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
 		val L0 = nextLabel()
 		val L1 = nextLabel()
@@ -910,6 +954,7 @@ open MLAS;
 			   | functions(ifthen(exp1,exp2,exp3)) = (functions exp1;functions exp2;functions exp3)
 			   | functions(apply(exp1,exp2)) = (functions exp1;functions exp2)
 			   | functions(infixexp(operator,exp1,exp2)) = (functions exp1;functions exp2)
+			   | functions(caseof(exp,L)) = (functions exp; List.map (fn (match(pat,exp)) => functions exp) L; ())
 			   | functions(handlexp(exp,L)) = (functions exp; List.map (fn (match(pat,exp)) => functions exp) L; ())
 			   | functions(raisexp(e)) = (functions e)
 			   | functions(negate(e)) = (functions e)
@@ -1019,6 +1064,7 @@ open MLAS;
 			functions exp1;
 			functions exp2
 		)
+		| functions(caseof(exp,L)) = (functions exp;List.map (fn (match(pat,exp)) => functions exp) L; ())
 		| functions(handlexp(exp,L)) = (functions exp;List.map (fn (match(pat,exp)) => functions exp) L; ())
 		| functions(raisexp(e)) = (functions e)
 		| functions(negate(e)) = (functions e)
@@ -1140,6 +1186,13 @@ open MLAS;
 					 (print("apply(id('raise'),"); 
 					  writeExp(indent,exp); 
 					  print(")"))
+
+			   | writeExp(indent,caseof(exp,L)) = 
+					 (println(indent^"handlexp("); 
+					  writeExp(indent^"   ",exp); 
+					  println("\n"^indent^", ["); 
+					  printList(writeMatch,indent^"   ",L); 
+					  println(indent^"])"))
 
 			   | writeExp(indent,handlexp(exp,L)) = 
 					 (println(indent^"handlexp("); 
@@ -1293,7 +1346,7 @@ open MLAS;
 		   TextIO.output(outFile,"END\n");        
 		   TextIO.closeOut(outFile)
 		 end 
-		 handle _ => (TextIO.output(TextIO.stdOut, "An error occurred while compiling!\n\n"));
+		 handle exp => (TextIO.output(TextIO.stdOut, "\nAn error occurred while compiling!\n\n"));
 			 
 	   
 	 fun run(a,b::c) = (compile b; OS.Process.success)

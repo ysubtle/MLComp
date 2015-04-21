@@ -134,7 +134,7 @@ fun makeMatchList (nil) = raise emptyDecList
 
 %right SetEqual
 %left Plus Minus Append Equals NotEqual
-%left Times Div Mod Greater Less GreaterEqual LessEqual 
+%left Times Div Mod Greater Less GreaterEqual LessEqual
 %right ListCons Negate
 %right Exclaim
 
@@ -162,6 +162,7 @@ Exp : Con                                                  (Con)
     | Exp NotEqual Exp                                     (infixexp("<>",Exp1,Exp2))
     | Exp Append Exp                                       (infixexp("@",Exp1,Exp2))
     | Exp ListCons Exp                                     (infixexp("::",Exp1,Exp2))
+    | Exp Fn Exp                                           (infixexp("=>",Exp1,Exp2))
     | LParen Exp RParen                                    (Exp)
     | LParen Expressions RParen                            (tuplecon(Expressions))
     | LParen ExpSequence RParen                            (expsequence(ExpSequence))
@@ -173,7 +174,6 @@ Exp : Con                                                  (Con)
     | Exp Handle MatchExp                                  (handlexp(Exp,MatchExp))
     | If Exp Then Exp Else Exp                             (ifthen(Exp1,Exp2,Exp3))
     | While Exp Do Exp                                     (whiledo(Exp1,Exp2))
-
     | Fn MatchExp                                          (func(nextIdNum(),MatchExp))
 
 FuncExp : Exp                                              (Exp)
