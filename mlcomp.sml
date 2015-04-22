@@ -592,26 +592,10 @@ open MLAS;
 
 	| codegen(caseof(t1,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
 		val L0 = nextLabel()
-		val L1 = nextLabel()
-		val L2 = nextLabel()
 		val excIndex = lookupIndex("Exception",globals)
 		val excmpIdx = lookupIndex("excmatch",cmp_op)
 	in
-		TextIO.output(outFile,indent^"SETUP_EXCEPT "^L0^"\n");
 		codegen(t1,outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope);         
-		TextIO.output(outFile,indent^"POP_BLOCK\n");
-		TextIO.output(outFile,indent^"JUMP_FORWARD "^L2^"\n");
-		TextIO.output(outFile,L0^":\n");
-		TextIO.output(outFile,indent^"DUP_TOP\n");
-		TextIO.output(outFile,indent^"LOAD_GLOBAL "^excIndex^"\n");
-		TextIO.output(outFile,indent^"COMPARE_OP "^excmpIdx^"\n");
-		TextIO.output(outFile,indent^"POP_JUMP_IF_FALSE "^L1^"\n");
-		(* At this point the stack has Exception, argument to Exception, and traceback on the stack.
-		  We will throw away the argument and the traceback *)
-		TextIO.output(outFile,indent^"ROT_TWO\n");
-		TextIO.output(outFile,indent^"POP_TOP\n");
-		TextIO.output(outFile,indent^"ROT_TWO\n");
-		TextIO.output(outFile,indent^"POP_TOP\n");
 
 		List.map (fn (match(pat,exp)) => let
 			val endpatternlab = nextLabel()
@@ -622,15 +606,12 @@ open MLAS;
 			in
 				TextIO.output(outFile,indent^"POP_TOP\n");
 				codegen(exp,outFile,indent,consts,locals,freeVars,cellVars,globals,newbindings@env,globalBindings,scope+1);
-				TextIO.output(outFile,indent^"JUMP_FORWARD "^L2^"\n");
+				TextIO.output(outFile,indent^"JUMP_FORWARD "^L0^"\n");
 				TextIO.output(outFile,endpatternlab^":\n")
 			end
 		end) L;
 		(* Exception pattern was not matched so reraise it *)
-		TextIO.output(outFile,L1^":\n");
-		TextIO.output(outFile,indent^"RAISE_VARARGS 1\n");
-		(* Otherwise, we continue on from here *)
-		TextIO.output(outFile,L2^":\n")
+		TextIO.output(outFile,L0^":\n")
 	end
 
 	| codegen(handlexp(t1,L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,globalBindings,scope) = let
@@ -1194,7 +1175,7 @@ open MLAS;
 					  print(")"))
 
 			   | writeExp(indent,caseof(exp,L)) = 
-					 (println(indent^"handlexp("); 
+					 (println(indent^"caseof("); 
 					  writeExp(indent^"   ",exp); 
 					  println("\n"^indent^", ["); 
 					  printList(writeMatch,indent^"   ",L); 
