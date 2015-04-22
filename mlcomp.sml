@@ -130,8 +130,8 @@ open MLAS;
 	| patConsts(idpat(n)) = []
 	| patConsts(wildcardpat) = []
 	| patConsts(infixpat(oper,pat1,pat2)) = patConsts(pat1) @ patConsts(pat2)
-	| patConsts(tuplepat(L)) = List.foldr (fn (x,y) => (patConsts x) @ y) [] L
 	| patConsts(listpat(L)) =  List.foldr (fn (x,y) => (patConsts x) @ y) [] L
+	| patConsts(tuplepat(L)) = List.foldr (fn (x,y) => (patConsts x) @ y) [] L
 	| patConsts(aspat(n,pat)) = patConsts(pat)
 
 	fun constants(ast) = let
@@ -195,6 +195,7 @@ open MLAS;
 	| patBindings(infixpat("::",pat1,pat2),scope) = (
 		patBindings(pat1,scope)) @ (patBindings(pat2,scope)
 	)
+	| patBindings(listpat(L),scope) = List.foldr (fn (x,y) => patBindings(x,scope)@y) [] L
 	| patBindings(tuplepat(L),scope) = List.foldr (fn (x,y) => patBindings(x,scope)@y) [] L
 	| patBindings(aspat(name,pat), scope) = [(name,name^"@"^Int.toString(scope))] @ (patBindings(pat, scope))
 	| patBindings(_,scope) = (
@@ -871,9 +872,14 @@ open MLAS;
 		end
 	end
 
+	| patmatch(listpat(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = (
+		TextIO.output(outFile,indent^"SELECT_FUNLIST\n");
+		List.foldl (fn (x,y) => patmatch(x,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) @ y) [] L
+	)
+
 	| patmatch(tuplepat(L),outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = (
 		TextIO.output(outFile,indent^"SELECT_TUPLE "^Int.toString(length(L))^"\n");
-		 List.foldl (fn (x,y) => patmatch(x,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) @ y) [] L
+		List.foldl (fn (x,y) => patmatch(x,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) @ y) [] L
 	)
 
 	| patmatch(_,outFile,indent,consts,locals,freeVars,cellVars,globals,env,scope,label) = (
