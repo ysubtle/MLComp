@@ -256,14 +256,14 @@ open MLAS;
 				end) L; ()
 			)
 			  
-			   | bindingsOf(raisexp(exp),bindings,scope) = bindingsOf(exp,bindings,scope)
-			   | bindingsOf(expsequence(L),bindings,scope) = (List.map (fn x => (bindingsOf(x,bindings,scope))) L; ())
-			   | bindingsOf(letdec(d,L2),bindings,scope) = 
-				 let val newbindings = decbindingsOf(d,bindings,scope)
-				 in 
-				   List.map (fn x => (bindingsOf(x, newbindings @ bindings,scope+1))) L2; 
-				   ()
-				 end
+			| bindingsOf(raisexp(exp),bindings,scope) = bindingsOf(exp,bindings,scope)
+			| bindingsOf(expsequence(L),bindings,scope) = (List.map (fn x => (bindingsOf(x,bindings,scope))) L; ())
+			| bindingsOf(letdec(d,L2),bindings,scope) = let
+				val newbindings = decbindingsOf(d,bindings,scope)
+			in 
+				List.map (fn x => (bindingsOf(x, newbindings @ bindings,scope+1))) L2; 
+				()
+			end
 			   | bindingsOf(func(idnum,L),bindings,scope) = 
 				 let val bindingsandvars =List.map (fn match(pat,exp) =>
 												let val patB = patBindings(pat,scope+1)
