@@ -290,7 +290,18 @@ typecheckFuns(Env,[FunMatch|Tail]) :- typecheckFun(Env,FunMatch), typecheckFuns(
 typecheckTuplePats([],[],[]).
 
 typecheckTuplePats([H|T],[HT|TTypes],REnv) :- 
-        typecheckPat(H,HT,HEnv), typecheckTuplePats(T,TTypes,TEnv), append(HEnv,TEnv,REnv).
+        typecheckPat(H,HT,HEnv),
+        typecheckTuplePats(T,TTypes,TEnv),
+        append(HEnv,TEnv,REnv).
+
+%% Match ListPat
+
+typecheckListPats([], _, []) :- !.
+typecheckListPats([H], HT, HEnv) :- typecheckPat(H, HT, HEnv), !.
+typecheckListPats([H|T], _, _) :-
+  typecheckPat(H, HT, HEnv),
+  typecheckListPats(T, HT, TEnv),
+  append(HEnv, TEnv, Env).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % type check lists with the typecheckListPats predicate here.
@@ -300,12 +311,19 @@ typecheckTuplePats([H|T],[HT|TTypes],REnv) :-
 /* typechecking a pattern does not need an environment, but instead returns a new environment
    of the identifiers in the pattern. The typecheckPat predicate is called as  
    typecheckPat(Pat,PatType,PatEnv) where PatType and PatEnv are the type and environment 
-   of the pattern. */
+   of the pattern.
+
+   Inference rule for sequential execution on page 316
+*/
 /******************************************************************************************************/
 
 typecheckPat(idpat(nil),listOf(_),[]) :- !.
 
 typecheckPat(idpat(Name),A,[(Name,A)]) :- !.
+
+typecheckPat(listpat(L), listOf(LT), Env) :- typecheckListPats(L, LT, Env), !. 
+
+typecheckPat(tuplepat(L), tuple(LT), Env) :- typecheckTuplePats(L, LT, Env), !.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Other patterns go here.
@@ -348,6 +366,9 @@ typecheckDec(Env,funmatches(L),NewEnv) :-
 typecheckTuple(_,[],[]).
 
 typecheckTuple(Env,[Exp|T],[ExpT|TailType]) :- typecheckExp(Env,Exp,ExpT), typecheckTuple(Env,T,TailType).
+
+typecheckSequence(Env, [], HT) :- !.
+typecheckSequence(Env, [H|T], HT) :- typecheckExp(Env,H,HT), typecheckSequence(Env, T, HT).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Typechecking sequences goes here with the typecheckSequence predicate that you write here.
