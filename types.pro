@@ -29,7 +29,7 @@ printExp(_, str(S)) :-  print(S), !.
 
 printExp(_, bool(B)) :- print(B), !.
 
-printExp(_, id(Name)) :- print(Name), !. 
+printExp(_, id(Name)) :- print(Name), !.
 
 printExp(Indent, listcon(L)) :- print('['), printExpList(Indent,L), print(']').
 
@@ -242,16 +242,26 @@ find(Env,Name,Type) :-
         print(' in environment : '), print(Env), nl, throw(typeerror('unbound identifier')).
 
 /******************************************************************************************************/
-/* The typecheckMatches code typechecks each match. */
+/* The typecheckMatch code typechecks each match. */
 /******************************************************************************************************/
 
+typecheckMatch(Env, Name, match(Pat, Exp)) :-
+  typecheckPat(Pat, HT, PEnv),
+  typecheckExp(EEnv, Exp, HT),
+  nl,
+  print(HT),
+  nl,
+  append(PEnv, EEnv, Env),
+  !.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% The typecheckMatch predicate goes here.
+% The typecheckMatches predicate goes here.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 typecheckMatches(_,_,[]).
 
 typecheckMatches(Env,Name,[Match|Tail]) :- 
-        typecheckMatch(Env,Name,Match), typecheckMatches(Env,Name,Tail).
+        typecheckMatch(Env,Name,Match),
+        typecheckMatches(Env,Name,Tail).
 
 /******************************************************************************************************/
 /* This is an important predicate. The gatherFuns predicate goes
@@ -294,6 +304,19 @@ typecheckTuplePats([H|T],[HT|TTypes],REnv) :-
         typecheckTuplePats(T,TTypes,TEnv),
         append(HEnv,TEnv,REnv).
 
+%% Match boolpat
+
+typecheckBoolPats(_, _, _).
+
+%% Match exppats
+
+typecheckExpPats([], _, []) :- !.
+typecheckExpPats([H], HT, HEnv) :- typecheckPat(H, HT, HEnv), !.
+typecheckExpPats([H|T], _, _) :-
+  typecheckPat(H, HT, HEnv),
+  typecheckExpPats(T, HT, TEnv),
+  append(HEnv, TEnv, _).
+
 %% Match ListPat
 
 typecheckListPats([], _, []) :- !.
@@ -301,7 +324,7 @@ typecheckListPats([H], HT, HEnv) :- typecheckPat(H, HT, HEnv), !.
 typecheckListPats([H|T], _, _) :-
   typecheckPat(H, HT, HEnv),
   typecheckListPats(T, HT, TEnv),
-  append(HEnv, TEnv, Env).
+  append(HEnv, TEnv, _).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % type check lists with the typecheckListPats predicate here.
@@ -323,14 +346,20 @@ typecheckPat(idpat(Name),A,[(Name,A)]) :- !.
 
 typecheckPat(listpat(L), listOf(LT), Env) :- typecheckListPats(L, LT, Env), !. 
 
-typecheckPat(tuplepat(L), tuple(LT), Env) :- typecheckTuplePats(L, LT, Env), !.
+typecheckPat(tuplepat(L), listOf(LT), Env) :- typecheckTuplePats(L, LT, Env), !.
+
+typecheckPat(boolpat(L), bool(LT), Env) :- typecheckBoolPats(L, LT, Env), !.
+
+typecheckPat(intpat(L), int(LT), Env) :- typecheckIntPats(L, LT, Env), !.
+
+typecheckPat(expsequence(L), exp(LT), Env) :- typecheckExpPats(L, LT, Env), !.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Other patterns go here.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 typecheckPat(A,_,_) :- 
-        nl, nl, print('Typechecker Error: Unknown pattern '), print(A), 
+        nl, nl, print('Typechecker Error: Unknown pattern '), print(A), nl, printPat(A),
         nl, nl, throw(error('unknown pattern')).
 
 /******************************************************************************************************/
@@ -365,9 +394,11 @@ typecheckDec(Env,funmatches(L),NewEnv) :-
 
 typecheckTuple(_,[],[]).
 
-typecheckTuple(Env,[Exp|T],[ExpT|TailType]) :- typecheckExp(Env,Exp,ExpT), typecheckTuple(Env,T,TailType).
+typecheckTuple(Env,[Exp|T],[ExpT|TailType]) :-
+  typecheckExp(Env,Exp,ExpT),
+  typecheckTuple(Env,T,TailType).
 
-typecheckSequence(Env, [], HT) :- !.
+typecheckSequence(_, [], _) :- !.
 typecheckSequence(Env, [H|T], HT) :- typecheckExp(Env,H,HT), typecheckSequence(Env, T, HT).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
