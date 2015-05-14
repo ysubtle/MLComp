@@ -246,12 +246,10 @@ find(Env,Name,Type) :-
 /******************************************************************************************************/
 
 typecheckMatch(Env, Name, match(Pat, Exp)) :-
-  typecheckPat(Pat, HT, PEnv),
-  typecheckExp(EEnv, Exp, HT),
-  nl,
-  print(HT),
-  nl,
-  append(PEnv, EEnv, Env),
+  find(Env, Name, fn(PT, ET)),
+  typecheckPat(Pat, PT, PEnv),
+  append(PEnv, Env, EEnv),
+  typecheckExp(EEnv, Exp, ET),
   !.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -304,10 +302,6 @@ typecheckTuplePats([H|T],[HT|TTypes],REnv) :-
         typecheckTuplePats(T,TTypes,TEnv),
         append(HEnv,TEnv,REnv).
 
-%% Match boolpat
-
-typecheckBoolPats(_, _, _).
-
 %% Match exppats
 
 typecheckExpPats([], _, []) :- !.
@@ -346,20 +340,23 @@ typecheckPat(idpat(Name),A,[(Name,A)]) :- !.
 
 typecheckPat(listpat(L), listOf(LT), Env) :- typecheckListPats(L, LT, Env), !. 
 
-typecheckPat(tuplepat(L), listOf(LT), Env) :- typecheckTuplePats(L, LT, Env), !.
+typecheckPat(tuplepat(L), tuple(LT), Env) :- typecheckTuplePats(L, LT, Env), !.
 
-typecheckPat(boolpat(L), bool(LT), Env) :- typecheckBoolPats(L, LT, Env), !.
+typecheckPat(boolpat(_), bool, _) :- !.
 
-typecheckPat(intpat(L), int(LT), Env) :- typecheckIntPats(L, LT, Env), !.
+typecheckPat(intpat(_), int, _) :- !.
 
-typecheckPat(expsequence(L), exp(LT), Env) :- typecheckExpPats(L, LT, Env), !.
+%% typecheckPat(expsequence(L), LT, Env) :-
+%%   print('exp seq'),
+%%   typecheckExpPats(L, LT, Env),
+%%   !.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Other patterns go here.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 typecheckPat(A,_,_) :- 
-        nl, nl, print('Typechecker Error: Unknown pattern '), print(A), nl, printPat(A),
+        nl, nl, print('Typechecker Error: Unknown pattern '), print(A), nl,
         nl, nl, throw(error('unknown pattern')).
 
 /******************************************************************************************************/
@@ -422,7 +419,7 @@ typecheckExp(Env,handlexp(Exp1,Matches), _) :-
         print('Expression type was '), printType(T, _), print(' and handler type is '), 
         printType(S,_), nl, throw(typeerror('expression and handler typemismatch')).
 
-typecheckExp(Env,expsequence(L),T) :- typecheckSequence(Env,L,T).
+typecheckExp(Env, expsequence(L), T) :- typecheckSequence(Env,L,T).
 
 typecheckExp(_,id(nil),listOf(_)) :- !.
 
@@ -464,11 +461,12 @@ typecheckExp(_,bool(_),bool).
 
 typecheckExp(_,str(_),str).
 
-typecheckExp(Env,tuple(L),tuple(T)) :- typecheckTuple(Env,L,T). 
+typecheckExp(Env,tuple(L),tuple(T)) :- typecheckTuple(Env,L,T).
 
-typecheckExp(_,Exp,_) :- 
-        nl, nl, print('Typechecker Error: Unknown expression '), print(Exp),
-        nl, nl, throw(error('typecheckExp: unknown expression')).
+typecheckExp(A,Exp,B) :-
+  nl, nl, print('Error in typecheckExp' + A + Exp + B),
+  nl, nl, print('Typechecker Error: Unknown expression '), print(Exp), nl, nl.
+  %% nl, nl, throw(error('typecheckExp: unknown expression')).
 
 /******************************************************************************************************/
 /* Here we have various error and status messages that may be displayed during type checking. */ 
